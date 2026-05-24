@@ -29,6 +29,22 @@ you don't, with nothing in between. `afr` gives you the evidence:
 
 The trace stays on your machine. You decide what to share.
 
+## Use Cases
+
+**Track what you're actually spending.** Claude Code sessions can quietly run up large token counts. `afr summarize` gives you a line per session — tokens, files changed, date — so you can see where your usage goes.
+
+```
+2026-05-24   ok   tokens=10,215,677   changed=3   claude
+2026-05-23   ok   tokens=4,302,819    changed=7   claude
+2026-05-22   ok   tokens=892,041      changed=0   claude
+```
+
+**Attach evidence to a PR.** When an agent writes or refactors code, reviewers are often asked to trust the result blindly. Drop `summary.md` or `diff.patch` into the PR description so reviewers can see the transcript and what actually changed.
+
+**Debug a session that went wrong.** If an agent made unexpected changes or exited badly, the transcript and diff tell you exactly what happened — without relying on terminal scrollback that's already gone.
+
+**Spot sessions that need a second look.** Trust warnings flag sessions where files changed but no tests ran, or where token usage is missing. A quick `afr summarize` shows you which sessions are worth reviewing before you ship.
+
 ## Getting Started
 
 ```bash

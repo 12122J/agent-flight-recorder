@@ -136,7 +136,7 @@ async function hookCommand(args, cwd) {
 
 async function installCommand(cwd) {
   const afrPath = fileURLToPath(new URL('../bin/afr.mjs', import.meta.url));
-  const hookCommand = `node ${afrPath} hook stop`;
+  const hookCommand = `node "${afrPath}" hook stop`;
   const settingsPath = join(process.env.HOME || '~', '.claude', 'settings.json');
 
   let settings = {};

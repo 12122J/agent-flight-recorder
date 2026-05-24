@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { extractFromTranscript } from './adapters/transcript.mjs';
 import { EventWriter } from './event-writer.mjs';
@@ -12,7 +13,7 @@ export async function recordFromHook({ sessionId, transcriptPath, fallbackCwd })
   const extracted = extractFromTranscript(lines);
 
   const resolvedCwd = resolve(extracted.cwd ?? fallbackCwd ?? process.cwd());
-  const runDir = join(resolvedCwd, '.afr', 'runs', sessionId);
+  const runDir = join(homedir(), '.afr', 'runs', sessionId);
 
   await ensureDir(runDir);
 

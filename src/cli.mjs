@@ -1,4 +1,5 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
@@ -12,17 +13,17 @@ const USAGE = `Agent Flight Recorder
 Usage:
   afr run [--agent <name>] [--label <label>] -- <command...>
   afr report <run-dir>
-  afr summarize [runs-dir]
+  afr summarize                                # shows ~/.afr/runs/ (all hook-recorded sessions)
+  afr summarize <runs-dir>                     # shows a specific directory
   afr hook stop
   afr install
   afr --version
   afr --help
 
 Examples:
-  afr run -- node -e "console.log('hello')"
+  afr install                                  # one-time setup: records every Claude Code session
+  afr summarize                                # see all your recorded sessions
   afr run -- claude --output-format json -p "explain this repo"
-  afr install                                  # records every Claude Code session automatically
-  afr summarize
 `;
 
 export async function main(argv, options = {}) {
@@ -88,7 +89,7 @@ async function reportCommand(args, cwd) {
 }
 
 async function summarizeCommand(args, cwd) {
-  const runsDir = resolve(cwd, args[0] || '.afr/runs');
+  const runsDir = args[0] ? resolve(cwd, args[0]) : join(homedir(), '.afr', 'runs');
   const entries = await readRunEntries(runsDir);
   if (entries.length === 0) {
     console.log('No runs found.');

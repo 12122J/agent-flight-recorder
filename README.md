@@ -54,31 +54,70 @@ When installed globally from npm in the future, the same commands will use
 afr run -- node -e "console.log('hello from afr')"
 ```
 
-## Quick Start
+## Try It in 30 Seconds
 
-Record a simple command:
+Clone, run one command, and see what gets recorded:
 
 ```bash
+git clone https://github.com/12122J/agent-flight-recorder.git
+cd agent-flight-recorder
 node bin/afr.mjs run -- node -e "console.log('hello from afr')"
 ```
 
-List recent runs:
+Terminal output:
+
+```
+hello from afr
+Recorded run: .afr/runs/2026-05-24T075338439Z-0a37d9
+```
+
+Check the log summary:
 
 ```bash
 node bin/afr.mjs summarize
 ```
 
-Regenerate a report:
-
-```bash
-node bin/afr.mjs report .afr/runs/<run-id>
+```
+2026-05-24T075338439Z-0a37d9   ok   tokens=-   changed=0   node -e console.log('hello from afr')
 ```
 
-Record a Codex run with token usage:
+Open the full report:
+
+```bash
+open .afr/runs/2026-05-24T075338439Z-0a37d9/report.html
+# or on Linux: xdg-open .afr/runs/*/report.html
+```
+
+The Markdown summary in `.afr/runs/<run-id>/summary.md` looks like:
+
+```markdown
+# Agent Flight Recorder Run
+
+**Command**: `node -e console.log('hello from afr')`
+**Duration**: 63ms
+**Exit Code**: 0
+**Total Tokens**: unknown
+**Files Changed**: 0
+
+## Warnings
+- No token usage captured: This agent or command did not expose structured token usage.
+
+## Artifacts
+- Events: events.jsonl
+- Transcript: transcript.txt
+- Diff: diff.patch
+- HTML Report: report.html
+```
+
+For a real agent run with token usage, use the Codex adapter:
 
 ```bash
 node bin/afr.mjs run --agent codex -- codex exec --json "summarize this repository"
+node bin/afr.mjs summarize
+# Total Tokens will now be populated from the structured JSON output
 ```
+
+## Quick Start
 
 ## Artifacts
 
@@ -114,8 +153,23 @@ that a run is bad.
 | Adapter | Status | Notes |
 | --- | --- | --- |
 | Shell | Working | Records any command's transcript, exit code, git state, and diff. |
-| Codex | Working MVP | Parses `turn.completed` usage from JSON output. |
-| Claude Code | Planned | Targeting structured output/log parsing after the core trace format settles. |
+| Codex | Working | Parses `turn.completed` usage from JSON output. |
+| Claude Code | Working | Parses `result` and `assistant` events from `--output-format json` / `stream-json`. |
+
+**Claude Code usage:**
+
+```bash
+# Single-turn, flat JSON result (tokens + cost in one line)
+node bin/afr.mjs run -- claude --output-format json -p "summarize this repository"
+
+# Streaming JSON — also captures individual Bash and file tool calls
+node bin/afr.mjs run -- claude --output-format stream-json -p "explain this repo"
+
+# Check the recorded totals
+node bin/afr.mjs summarize
+```
+
+The adapter auto-detects `claude` as the executable — no `--agent` flag needed.
 
 ## Development
 

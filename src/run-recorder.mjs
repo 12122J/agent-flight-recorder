@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { appendFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { observeClaudeCodeLine } from './adapters/claude-code.mjs';
 import { observeCodexLine } from './adapters/codex.mjs';
 import { EventWriter } from './event-writer.mjs';
 import { countPatchFiles, getGitDiff, getGitSnapshot } from './git.mjs';
@@ -69,6 +70,7 @@ export async function recordRun({
       after: gitAfter
     },
     usage: observations.usage,
+    session: observations.session ?? null,
     tools: observations.tools,
     files: observations.files,
     diff: {
@@ -164,11 +166,16 @@ function observeLines(remainder, text, agent, writer, observations, pendingWrite
 }
 
 function flushLine(line, agent, writer, observations, pendingWrites) {
-  if (!line.trim() || agent !== 'codex') {
-    return;
+  if (!line.trim()) return;
+
+  let lineObservations = [];
+  if (agent === 'codex') {
+    lineObservations = observeCodexLine(line);
+  } else if (agent === 'claude') {
+    lineObservations = observeClaudeCodeLine(line);
   }
 
-  for (const observation of observeCodexLine(line)) {
+  for (const observation of lineObservations) {
     applyObservation(observations, observation);
     pendingWrites.push(writer.write(observation.type, withoutType(observation)));
   }
@@ -177,6 +184,7 @@ function flushLine(line, agent, writer, observations, pendingWrites) {
 function createObservationState() {
   return {
     usage: null,
+    session: null,
     tools: {
       command_count: 0,
       commands: []
@@ -196,6 +204,18 @@ function applyObservation(state, observation) {
       output_tokens: observation.output_tokens,
       reasoning_output_tokens: observation.reasoning_output_tokens,
       total_tokens: observation.total_tokens
+    };
+  }
+
+  if (observation.type === 'usage.cost') {
+    state.usage = state.usage ?? {};
+    state.usage.cost_usd = observation.cost_usd;
+  }
+
+  if (observation.type === 'session.turns') {
+    state.session = {
+      num_turns: observation.num_turns,
+      session_id: observation.session_id
     };
   }
 

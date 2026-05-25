@@ -154,39 +154,23 @@ test('extracts user messages from handler logs', async () => {
   }
 });
 
-test('extracts assistant text messages, skips function calls', async () => {
-  const assistantMsg = JSON.stringify({
-    type: 'response.output_item.done',
-    item: {
-      id: 'msg_abc',
-      type: 'message',
-      status: 'completed',
-      content: [{ type: 'output_text', text: 'Here is the answer.' }],
-    },
-  });
-  const functionCall = JSON.stringify({
-    type: 'response.output_item.done',
-    item: {
-      id: 'fc_xyz',
-      type: 'function_call',
-      status: 'completed',
-      name: 'exec_command',
-      arguments: '{"cmd":"ls"}',
-    },
-  });
+test('extracts assistant text messages, skips non-FinalAnswer items', async () => {
+  // Real format: codex_core::stream_events_utils with Rust Debug handle_output_item_done
+  const finalAnswer = `session_loop{thread_id=${THREAD}}:run_turn: handle_output_item_done: Output item item=Message { id: Some("msg_abc"), role: "assistant", content: [OutputText { text: "Here is the answer." }], phase: Some(FinalAnswer) }`;
+  const intermediate = `session_loop{thread_id=${THREAD}}:run_turn: handle_output_item_done: Output item item=Message { id: Some("msg_xyz"), role: "assistant", content: [OutputText { text: "intermediate chunk" }], phase: Some(Streaming) }`;
 
   const { dbPath, cleanup } = await makeTempDb([
     {
       ts: 1000,
       thread_id: THREAD,
-      target: 'log',
-      feedback_log_body: `Received message ${assistantMsg}`,
+      target: 'codex_core::stream_events_utils',
+      feedback_log_body: finalAnswer,
     },
     {
       ts: 1001,
       thread_id: THREAD,
-      target: 'log',
-      feedback_log_body: `Received message ${functionCall}`,
+      target: 'codex_core::stream_events_utils',
+      feedback_log_body: intermediate,
     },
     {
       ts: 1002,

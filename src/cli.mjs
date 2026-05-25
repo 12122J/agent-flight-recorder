@@ -242,7 +242,7 @@ async function installClaudeCodeHook(ttPath) {
   settings.hooks = settings.hooks ?? {};
   settings.hooks.Stop = [
     ...stopHooks,
-    { hooks: [{ type: 'command', command: `node "${ttPath}" hook stop` }] },
+    { hooks: [{ type: 'command', command: `${nodePath} "${ttPath}" hook stop` }] },
   ];
   await ensureDir(dirname(settingsPath));
   await writeFile(settingsPath, JSON.stringify(settings, null, 4) + '\n');

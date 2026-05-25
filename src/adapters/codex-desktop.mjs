@@ -59,18 +59,12 @@ function extractUserMessage(body) {
 }
 
 function extractAssistantMessage(body) {
-  // Log lines start with "Received message {json}"
-  if (!body?.includes('response.output_item.done')) return null;
-  try {
-    const start = body.indexOf('{"type":"response.output_item.done"');
-    if (start === -1) return null;
-    const data = JSON.parse(body.slice(start));
-    // Only text messages, not function calls
-    if (data.item?.type !== 'message') return null;
-    return data.item?.content?.[0]?.text?.trim() ?? null;
-  } catch {
-    return null;
-  }
+  // codex_core::stream_events_utils logs final assistant messages as Rust Debug:
+  // handle_output_item_done: Output item item=Message { ... content: [OutputText { text: "..." }], phase: Some(FinalAnswer) }
+  if (!body?.includes('handle_output_item_done:')) return null;
+  if (!body.includes('FinalAnswer')) return null;
+  const m = body.match(/OutputText \{ text: "((?:[^"\\]|\\.)*)" \}/s);
+  return m ? unescapeRust(m[1]).trim() : null;
 }
 
 /**
@@ -162,8 +156,8 @@ export async function readNewSessions(sinceId = 0, dbPath = DEFAULT_DB_PATH) {
       if (text) t.user_messages.push(text);
     }
 
-    // Assistant text messages (not function calls)
-    if (target === 'log' && body?.includes('response.output_item.done')) {
+    // Assistant text messages — logged as Rust Debug in stream_events_utils
+    if (target === 'codex_core::stream_events_utils' && body?.includes('handle_output_item_done:')) {
       const text = extractAssistantMessage(body);
       if (text) t.assistant_messages.push(text);
     }

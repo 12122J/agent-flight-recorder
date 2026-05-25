@@ -40,9 +40,10 @@ function formatTokens(value) {
 function resolveUsageTokens(usage) {
   if (!usage) return { total: null, cacheCreation: null, cacheReads: null };
   const isNewFormat = 'cache_creation_tokens' in usage;
+  const fromParts = (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
   const total = isNewFormat
     ? usage.total_tokens ?? ((usage.input_tokens ?? 0) + (usage.cache_creation_tokens ?? 0) + (usage.output_tokens ?? 0))
-    : (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
+    : (fromParts > 0 ? fromParts : (usage.total_tokens ?? null));
   const cacheCreation = isNewFormat ? usage.cache_creation_tokens : null;
   const cacheReads = isNewFormat ? usage.cache_read_tokens : usage.cached_input_tokens;
   return { total, cacheCreation, cacheReads };
@@ -103,6 +104,8 @@ function CostBreakdown({ model, usage, vatRate, pricingDb }) {
     { label: 'Cache reads', tokens: usage.cache_read_tokens ?? usage.cached_input_tokens ?? 0, rate: p.cacheRead },
     { label: 'Output',      tokens: usage.output_tokens ?? 0, rate: p.output     },
   ].filter(r => r.tokens > 0 && r.rate != null);
+
+  if (rows.length === 0) return null;
 
   const subtotal = rows.reduce((s, r) => s + r.tokens / M * r.rate, 0);
   const vat = subtotal * (vatRate / 100);

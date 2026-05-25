@@ -34,19 +34,24 @@ export default function App() {
     localStorage.setItem('tt_vat_rate', String(rate));
   }
 
-  useEffect(() => {
-    fetch('/api/sessions')
+  function loadSessions() {
+    return fetch('/api/sessions')
       .then(r => r.json())
-      .then(data => {
-        setAllSessions(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      .then(data => { if (Array.isArray(data)) setAllSessions(data); })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadSessions().finally(() => setLoading(false));
 
     fetch('/api/pricing')
       .then(r => r.ok ? r.json() : null)
       .then(db => { if (db) setPricingDb(db); })
       .catch(() => {});
+
+    // Auto-refresh every 30 s to pick up new sessions without a page reload
+    const timer = setInterval(loadSessions, 30_000);
+    return () => clearInterval(timer);
   }, []);
 
   const sessions = useMemo(() => filterByDays(allSessions, filterDays), [allSessions, filterDays]);
@@ -59,7 +64,18 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <span className="header__wordmark">tokentrace</span>
+        <div className="header__brand">
+          <span className="header__wordmark">tokentrace</span>
+          <a
+            className="header__gh"
+            href="https://github.com/12122J/tokentrace"
+            target="_blank"
+            rel="noreferrer"
+            title="View on GitHub"
+          >
+            12122J/tokentrace
+          </a>
+        </div>
         <div className="header__controls">
           <div className="date-filter">
             {FILTER_OPTIONS.map(opt => (

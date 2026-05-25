@@ -61,11 +61,16 @@ export function sessionCost(session, pricingDb) {
     return { value: null, estimated: false };
   }
 
+  const u = session.usage;
   const p = lookupPrice(pricingDb, session.model);
   if (!p) return { value: null, estimated: false };
 
+  // No per-turn breakdown available (Codex Desktop sessions without response.completed data)
+  if (u.input_tokens == null && u.output_tokens == null) {
+    return { value: null, estimated: false };
+  }
+
   const M = 1_000_000;
-  const u = session.usage;
   const value = (
     (u.input_tokens            ?? 0) / M * (p.input      ?? 0) +
     (u.cache_creation_tokens   ?? 0) / M * (p.cacheWrite ?? 0) +
@@ -79,13 +84,13 @@ export function sessionCost(session, pricingDb) {
 /**
  * Compute effective (display) token count from a usage object.
  * Handles old format (cached_input_tokens combined) vs new format (separated fields).
+ * For Codex Desktop sessions, falls back to total_tokens (context window size).
  * @param {object|null} usage
  * @returns {number}
  */
 export function effectiveTokens(usage) {
   if (!usage) return 0;
-  // New format: cache_creation_tokens is separate; total_tokens is correct.
-  // Old format: cached_input_tokens combines creation+reads, inflating total_tokens.
+  // New format with cache_creation_tokens: total_tokens is the accurate billed count
   if ('cache_creation_tokens' in usage) {
     return usage.total_tokens ?? (
       (usage.input_tokens ?? 0) +
@@ -93,5 +98,9 @@ export function effectiveTokens(usage) {
       (usage.output_tokens ?? 0)
     );
   }
-  return (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
+  // Standard: sum input + output
+  const fromParts = (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
+  if (fromParts > 0) return fromParts;
+  // Fallback: total_tokens alone (e.g. Codex Desktop context window size)
+  return usage.total_tokens ?? 0;
 }

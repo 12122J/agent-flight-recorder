@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT = 7842;
-const RUNS_DIR = join(homedir(), '.tokentrace', 'runs');
+const PORT = process.env.TOKENTRACE_PORT ? parseInt(process.env.TOKENTRACE_PORT) : 7842;
+const RUNS_DIR = process.env.TOKENTRACE_RUNS_DIR ?? join(homedir(), '.tokentrace', 'runs');
 const DIST_DIR = join(__dirname, 'dist');
 
 const app = express();

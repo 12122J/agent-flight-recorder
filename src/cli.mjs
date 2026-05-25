@@ -1,14 +1,19 @@
+import { execFile } from 'node:child_process';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { homedir, platform } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { spawn } from 'node:child_process';
 import packageJson from '../package.json' with { type: 'json' };
 import { recordFromHook } from './hook-recorder.mjs';
 import { recordRun } from './run-recorder.mjs';
 import { regenerateReport } from './report.mjs';
 import { loadPricingDb, updatePricingDb } from './pricing-db.mjs';
-import { readJson } from './util.mjs';
+import { ensureDir, readJson } from './util.mjs';
+import { watchOnce } from './codex-watcher.mjs';
+
+const execFileAsync = promisify(execFile);
 
 const USAGE = `TokenTrace
 
@@ -17,16 +22,18 @@ Usage:
   tt report <run-dir>
   tt summarize                                 # shows ~/.tokentrace/runs/ (all hook-recorded sessions)
   tt summarize <runs-dir>                      # shows a specific directory
-  tt serve                                     # open the web dashboard at http://localhost:7842
+  tt serve                                     # start the dashboard server and open it in the browser
+  tt stop                                      # stop a running dashboard server
   tt hook stop
-  tt install
+  tt install                                   # one-time setup for all automatic recording
+  tt watch-codex [--once]                      # process completed Codex Desktop sessions
   tt pricing update                            # fetch latest pricing from litellm and save to cache
   tt pricing show                              # print the current cached pricing table
   tt --version
   tt --help
 
 Examples:
-  tt install                                   # one-time setup: records every Claude Code session
+  tt install                                   # sets up Claude Code hook + Codex shim + Desktop watcher
   tt summarize                                 # see all your recorded sessions
   tt serve                                     # browse sessions in the local web dashboard
   tt run -- claude --output-format json -p "explain this repo"
@@ -71,8 +78,16 @@ export async function main(argv, options = {}) {
     return serveCommand(rest);
   }
 
+  if (command === 'stop') {
+    return stopCommand();
+  }
+
   if (command === 'pricing') {
     return pricingCommand(rest);
+  }
+
+  if (command === 'watch-codex') {
+    return watchCodexCommand(rest);
   }
 
   throw new Error(`Unknown command: ${command}\n\n${USAGE}`);
@@ -163,41 +178,215 @@ async function hookCommand(args, cwd) {
   return 0;
 }
 
-async function installCommand(cwd) {
-  const afrPath = fileURLToPath(new URL('../bin/tt.mjs', import.meta.url));
-  const hookCommand = `node "${afrPath}" hook stop`;
-  const settingsPath = join(process.env.HOME || '~', '.claude', 'settings.json');
+async function installCommand(_cwd) {
+  const ttPath = fileURLToPath(new URL('../bin/tt.mjs', import.meta.url));
+  const nodePath = process.execPath;
+  let anyNew = false;
 
+  // 1. Claude Code Stop hook (Claude Code CLI + Desktop — both read ~/.claude/settings.json)
+  const hookInstalled = await installClaudeCodeHook(ttPath);
+  if (hookInstalled) {
+    console.log('✓ Claude Code hook installed → ~/.claude/settings.json');
+    console.log('  Claude Code CLI and Desktop sessions will now be recorded automatically.');
+    anyNew = true;
+  } else {
+    console.log('✓ Claude Code hook already installed.');
+  }
+
+  // 2. Codex CLI shell shim
+  const shimResult = await installCodexCliShim(ttPath, nodePath);
+  if (shimResult.installed) {
+    console.log(`✓ Codex CLI shim installed → ${shimResult.file}`);
+    console.log('  Restart your shell (or run: source ' + shimResult.file + ')');
+    console.log('  After that, plain `codex exec "..."` will be recorded automatically.');
+    anyNew = true;
+  } else if (shimResult.alreadyInstalled) {
+    console.log('✓ Codex CLI shim already installed.');
+  } else {
+    console.log(`  Codex CLI shim skipped: ${shimResult.reason}`);
+  }
+
+  // 3. Codex Desktop watcher (macOS LaunchAgent)
+  if (platform() === 'darwin') {
+    const watcherResult = await installCodexDesktopWatcher(ttPath, nodePath);
+    if (watcherResult.installed) {
+      console.log(`✓ Codex Desktop watcher installed → ${watcherResult.plistPath}`);
+      console.log('  Codex Desktop sessions will be recorded every 30 seconds in the background.');
+      anyNew = true;
+    } else if (watcherResult.alreadyInstalled) {
+      console.log('✓ Codex Desktop watcher already installed.');
+    } else {
+      console.log(`  Codex Desktop watcher skipped: ${watcherResult.reason}`);
+    }
+  }
+
+  if (!anyNew) {
+    console.log('\nAll integrations already installed. Nothing to do.');
+  } else {
+    console.log('\nRun `tt summarize` to see your recorded sessions.');
+  }
+
+  return 0;
+}
+
+async function installClaudeCodeHook(ttPath) {
+  const settingsPath = join(homedir(), '.claude', 'settings.json');
   let settings = {};
   try {
     settings = JSON.parse(await readFile(settingsPath, 'utf8'));
   } catch {
-    // File doesn't exist or is invalid — start fresh
+    // start fresh
   }
 
   const stopHooks = settings.hooks?.Stop ?? [];
   const alreadyInstalled = stopHooks.some(
-    matcher => matcher.hooks?.some(h => h.command?.includes('tokentrace') || h.command?.includes('tt.mjs'))
+    m => m.hooks?.some(h => h.command?.includes('tokentrace') || h.command?.includes('tt.mjs'))
   );
-
-  if (alreadyInstalled) {
-    console.log('tokentrace Stop hook is already installed in ~/.claude/settings.json');
-    return 0;
-  }
+  if (alreadyInstalled) return false;
 
   settings.hooks = settings.hooks ?? {};
   settings.hooks.Stop = [
     ...stopHooks,
-    { hooks: [{ type: 'command', command: hookCommand }] }
+    { hooks: [{ type: 'command', command: `${nodePath} "${ttPath}" hook stop` }] },
   ];
-
+  await ensureDir(dirname(settingsPath));
   await writeFile(settingsPath, JSON.stringify(settings, null, 4) + '\n');
-  console.log(`Installed tokentrace Stop hook → ${settingsPath}`);
-  console.log('Every Claude Code session in any directory will now be recorded to .tokentrace/runs/');
+  return true;
+}
+
+async function installCodexCliShim(ttPath, nodePath) {
+  // Find the real codex binary before writing the shim
+  let realCodexPath;
+  try {
+    const { stdout } = await execFileAsync('which', ['codex']);
+    realCodexPath = stdout.trim();
+  } catch {
+    return { installed: false, alreadyInstalled: false, reason: 'codex not found in PATH' };
+  }
+  if (!realCodexPath) {
+    return { installed: false, alreadyInstalled: false, reason: 'codex not found in PATH' };
+  }
+
+  const shimBlock = `
+# TokenTrace Codex CLI shim — added by tt install
+__TOKENTRACE_REAL_CODEX="${realCodexPath}"
+codex() { "${nodePath}" "${ttPath}" run --agent codex -- "$__TOKENTRACE_REAL_CODEX" "$@"; }
+# end TokenTrace Codex CLI shim`;
+
+  // Try ~/.zshrc first, fall back to ~/.bashrc
+  const candidates = [join(homedir(), '.zshrc'), join(homedir(), '.bashrc')];
+  let targetFile = null;
+
+  for (const candidate of candidates) {
+    try {
+      const content = await readFile(candidate, 'utf8');
+      if (content.includes('TokenTrace Codex CLI shim')) {
+        return { installed: false, alreadyInstalled: true, file: candidate };
+      }
+      if (targetFile === null) targetFile = candidate;
+    } catch {
+      if (targetFile === null) targetFile = candidate;
+    }
+  }
+
+  if (!targetFile) {
+    return { installed: false, alreadyInstalled: false, reason: 'no .zshrc or .bashrc found' };
+  }
+
+  let existing = '';
+  try { existing = await readFile(targetFile, 'utf8'); } catch { /* new file */ }
+  await writeFile(targetFile, existing + shimBlock + '\n');
+  return { installed: true, file: targetFile };
+}
+
+async function installCodexDesktopWatcher(ttPath, nodePath) {
+  const label = 'io.tokentrace.codex-watcher';
+  const plistPath = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+  const logPath = join(homedir(), '.tokentrace', 'codex-watcher.log');
+
+  // Check if already installed
+  let existing = '';
+  try { existing = await readFile(plistPath, 'utf8'); } catch { /* not installed */ }
+  if (existing.includes('io.tokentrace.codex-watcher')) {
+    return { installed: false, alreadyInstalled: true, plistPath };
+  }
+
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${nodePath}</string>
+    <string>${ttPath}</string>
+    <string>watch-codex</string>
+    <string>--once</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>30</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${logPath}</string>
+  <key>StandardErrorPath</key>
+  <string>${logPath}</string>
+</dict>
+</plist>
+`;
+
+  await ensureDir(dirname(plistPath));
+  await ensureDir(dirname(logPath));
+  await writeFile(plistPath, plist);
+
+  try {
+    await execFileAsync('launchctl', ['load', plistPath]);
+  } catch {
+    // Might already be loaded — try reload
+    try {
+      await execFileAsync('launchctl', ['unload', plistPath]);
+      await execFileAsync('launchctl', ['load', plistPath]);
+    } catch {
+      // Non-fatal — plist is written, user can load manually
+    }
+  }
+
+  return { installed: true, plistPath };
+}
+
+async function watchCodexCommand(args) {
+  const once = args.includes('--once') || args.includes('--daemon');
+  const count = await watchOnce({ verbose: true });
+  if (once || args.length === 0) {
+    if (count === 0) {
+      process.stderr.write('[tt] No new Codex Desktop sessions to record.\n');
+    } else {
+      process.stderr.write(`[tt] Recorded ${count} new Codex Desktop session${count === 1 ? '' : 's'}.\n`);
+    }
+    return 0;
+  }
   return 0;
 }
 
+const PID_FILE = join(homedir(), '.tokentrace', 'dashboard.pid');
+
 async function serveCommand(_args) {
+  // Check if already running
+  try {
+    const pid = parseInt(await readFile(PID_FILE, 'utf8'), 10);
+    if (pid) {
+      try {
+        process.kill(pid, 0); // Check if process exists
+        console.log(`tokentrace dashboard already running (pid ${pid}) at http://localhost:7842`);
+        console.log('Run `tt stop` to stop it.');
+        return 0;
+      } catch {
+        // PID file is stale — continue
+      }
+    }
+  } catch { /* no pid file */ }
+
   const serverPath = fileURLToPath(new URL('../dashboard/server.mjs', import.meta.url));
   const PORT = 7842;
   const URL_TO_OPEN = `http://localhost:${PORT}`;
@@ -212,26 +401,23 @@ async function serveCommand(_args) {
     process.exit(1);
   });
 
+  await ensureDir(join(homedir(), '.tokentrace'));
+  await writeFile(PID_FILE, String(child.pid));
+
+  child.on('exit', () => {
+    writeFile(PID_FILE, '').catch(() => {});
+  });
+
   // Give the server a moment to bind before opening the browser
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  const platform = process.platform;
-  let openCmd;
-  if (platform === 'darwin') {
-    openCmd = 'open';
-  } else if (platform === 'win32') {
-    openCmd = 'start';
-  } else {
-    openCmd = 'xdg-open';
-  }
-
-  const opener = spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: platform === 'win32' });
-  opener.on('error', () => {
-    // Opening the browser is best-effort — not fatal
-  });
+  const plt = process.platform;
+  const openCmd = plt === 'darwin' ? 'open' : plt === 'win32' ? 'start' : 'xdg-open';
+  const opener = spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: plt === 'win32' });
+  opener.on('error', () => {});
 
   console.log(`tokentrace dashboard running at ${URL_TO_OPEN}`);
-  console.log('Press Ctrl+C to stop.');
+  console.log('Run `tt stop` to stop it.');
 
   await new Promise((resolve, reject) => {
     child.on('exit', (code) => {
@@ -243,6 +429,19 @@ async function serveCommand(_args) {
     });
   });
 
+  return 0;
+}
+
+async function stopCommand() {
+  try {
+    const pid = parseInt(await readFile(PID_FILE, 'utf8'), 10);
+    if (!pid) throw new Error('no pid');
+    process.kill(pid, 'SIGTERM');
+    await writeFile(PID_FILE, '');
+    console.log(`tokentrace dashboard stopped (pid ${pid}).`);
+  } catch {
+    console.log('No running tokentrace dashboard found.');
+  }
   return 0;
 }
 

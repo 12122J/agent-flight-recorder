@@ -371,25 +371,30 @@ async function watchCodexCommand(args) {
 
 const PID_FILE = join(homedir(), '.tokentrace', 'dashboard.pid');
 
-async function serveCommand(_args) {
-  // Check if already running
-  try {
-    const pid = parseInt(await readFile(PID_FILE, 'utf8'), 10);
-    if (pid) {
-      try {
-        process.kill(pid, 0); // Check if process exists
-        console.log(`tokentrace dashboard already running (pid ${pid}) at http://localhost:7842`);
-        console.log('Run `tt stop` to stop it.');
-        return 0;
-      } catch {
-        // PID file is stale — continue
-      }
-    }
-  } catch { /* no pid file */ }
+async function isPortInUse(port) {
+  const { createServer } = await import('node:net');
+  return new Promise(resolve => {
+    const s = createServer().listen(port, '127.0.0.1');
+    s.on('listening', () => { s.close(); resolve(false); });
+    s.on('error', () => resolve(true));
+  });
+}
 
-  const serverPath = fileURLToPath(new URL('../dashboard/server.mjs', import.meta.url));
+async function serveCommand(_args) {
   const PORT = 7842;
   const URL_TO_OPEN = `http://localhost:${PORT}`;
+
+  // If something is already on the port (regardless of PID file), just open the browser
+  if (await isPortInUse(PORT)) {
+    console.log(`tokentrace dashboard already running at ${URL_TO_OPEN}`);
+    console.log('Run `tt stop` to stop it.');
+    const plt = process.platform;
+    const openCmd = plt === 'darwin' ? 'open' : plt === 'win32' ? 'start' : 'xdg-open';
+    spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: plt === 'win32' }).on('error', () => {});
+    return 0;
+  }
+
+  const serverPath = fileURLToPath(new URL('../dashboard/server.mjs', import.meta.url));
 
   const child = spawn(process.execPath, [serverPath], {
     stdio: 'inherit',

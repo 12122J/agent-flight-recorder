@@ -155,6 +155,38 @@ node bin/afr.mjs run -- npm test
 node bin/afr.mjs run -- ./scripts/deploy.sh
 ```
 
+## Ask Claude About Your Sessions
+
+`afr` ships an MCP server so Claude can query your recorded sessions directly. Once wired up, you can ask things like:
+
+- *"how much have I spent on tokens this week?"*
+- *"what did I change in my last session?"*
+- *"show me the diff from yesterday"*
+
+**Setup (one time):** add this to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "afr": {
+      "command": "npx",
+      "args": ["afr-mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Code and just ask. No commands needed — Claude pulls the data from `~/.afr/runs/` automatically.
+
+The MCP server exposes four tools Claude can call:
+
+| Tool | What it does |
+| --- | --- |
+| `list_sessions` | Recent sessions — tokens, cost, files changed, status |
+| `get_session` | Full metadata + transcript for one session |
+| `get_diff` | Git patch from a session |
+| `get_token_usage` | Aggregate cost and token totals, with optional date range |
+
 ## Trust Warnings
 
 Reports flag runs that deserve a second look:

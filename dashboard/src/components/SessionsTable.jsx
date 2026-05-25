@@ -106,7 +106,12 @@ export default function SessionsTable({ sessions, selectedId, onSelect, vatRate 
             >
               <td>{formatDate(session.started_at || session.completed_at)}</td>
               <td>
-                <div style={{ fontFamily: 'Menlo, monospace', fontSize: 11, color: '#6b7280' }}>{session.model ? session.model.replace('claude-', '') : '—'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Menlo, monospace', fontSize: 11, color: '#6b7280' }}>{session.model ? session.model.replace('claude-', '') : '—'}</span>
+                  {session.source === 'codex-desktop' && (
+                    <span className="source-badge source-badge--desktop" title="Recorded from Codex Desktop app">Desktop</span>
+                  )}
+                </div>
                 {(session.label || session.description) && (
                   <div style={{ fontSize: 11, color: '#374151', marginTop: 2, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {session.label || session.description}

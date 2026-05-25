@@ -59,7 +59,18 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <span className="header__wordmark">tokentrace</span>
+        <div className="header__brand">
+          <span className="header__wordmark">tokentrace</span>
+          <a
+            className="header__gh"
+            href="https://github.com/12122J/tokentrace"
+            target="_blank"
+            rel="noreferrer"
+            title="View on GitHub"
+          >
+            12122J/tokentrace
+          </a>
+        </div>
         <div className="header__controls">
           <div className="date-filter">
             {FILTER_OPTIONS.map(opt => (

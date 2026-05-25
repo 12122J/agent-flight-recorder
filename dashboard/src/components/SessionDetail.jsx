@@ -289,6 +289,12 @@ export default function SessionDetail({ session, vatRate = 0, pricingDb = null, 
           <div className="detail-meta-item__value" style={{ fontFamily: 'Menlo, monospace', fontSize: 12 }}>{session.model || '—'}</div>
         </div>
         <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Source</div>
+          <div className="detail-meta-item__value" style={{ fontSize: 12, color: '#6b7280' }}>
+            {session.source === 'codex-desktop' ? 'Codex Desktop' : session.source === 'hook' ? 'Claude Code hook' : session.agent || '—'}
+          </div>
+        </div>
+        <div className="detail-meta-item">
           <div className="detail-meta-item__label">Status</div>
           <div className="detail-meta-item__value">
             <span className={`status-badge ${session.exit_code === 0 ? 'status-badge--ok' : 'status-badge--fail'}`}>

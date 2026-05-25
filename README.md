@@ -92,24 +92,32 @@ TokenTrace is early and intentionally honest about what it can see today.
 
 | Surface | Current support |
 | --- | --- |
-| Claude Code CLI | Automatic after `tt install`, via Claude Code Stop hooks. |
-| Codex CLI | Works only when launched through `tt run -- codex exec --json ...`. |
-| Shell commands | Works only when launched through `tt run -- <command>`. |
-| Codex Desktop app | Not captured automatically yet. |
+| Claude Code CLI | Automatic after `tt install`. |
+| Claude Code Desktop | Automatic after `tt install` — same hook file as CLI. |
+| Codex Desktop app | Automatic after `tt install` — reads `~/.codex/logs_2.sqlite` every 30 s via a macOS LaunchAgent. |
+| Codex CLI | Automatic after `tt install` if `codex` is in PATH — a shell shim wraps it transparently. |
+| Shell commands | Works when launched through `tt run -- <command>`. |
 | VS Code / IDE integrations | Not captured automatically yet. |
 | Browser-based agent sessions | Not captured automatically yet. |
 
-TokenTrace is not a global activity monitor. It can only record sessions exposed through a supported hook, wrapper, or log source. The next major product step is automatic capture for Codex and IDE/desktop surfaces, but that needs separate integrations rather than a README-level promise.
+**Codex Desktop transcript note:** The SQLite log database does not store full per-thread assistant message content for all sessions. User messages are always captured; assistant message text is captured when available in the logs (usually for recent sessions). Token count and model are always captured.
 
-## Automatic Recording via Hooks
+TokenTrace is not a global activity monitor for IDE plugins or browser sessions — those surfaces need dedicated integrations.
 
-`tt install` registers a Stop hook with Claude Code. Claude Code CLI sessions are recorded automatically when they end — token usage, git diff, transcript, tool calls.
+## Automatic Recording via `tt install`
+
+`tt install` sets up three integrations at once:
+
+1. **Claude Code hook** — writes a Stop hook to `~/.claude/settings.json`. Both the CLI and the Desktop app read this file, so both surfaces are covered.
+2. **Codex CLI shim** — if `codex` is in PATH, adds a shell function to `~/.zshrc` (or `~/.bashrc`) that wraps every `codex exec` call transparently. Restart your shell once after install.
+3. **Codex Desktop watcher** (macOS only) — installs a LaunchAgent at `~/Library/LaunchAgents/io.tokentrace.codex-watcher.plist` that runs `tt watch-codex --once` every 30 seconds. Completed Codex Desktop sessions are recorded automatically.
 
 ```bash
 npm install -g @j___avi/tokentrace
 tt install
-# Installed tokentrace Stop hook → ~/.claude/settings.json
-# Claude Code CLI sessions will now be recorded to ~/.tokentrace/runs/
+# ✓ Claude Code hook installed → ~/.claude/settings.json
+# ✓ Codex CLI shim installed → ~/.zshrc
+# ✓ Codex Desktop watcher installed → ~/Library/LaunchAgents/io.tokentrace.codex-watcher.plist
 ```
 
 To see all recorded sessions:
@@ -191,9 +199,11 @@ See [docs/RUN_FORMAT.md](docs/RUN_FORMAT.md) for full schema details.
 | Agent | Status | Notes |
 | --- | --- | --- |
 | Shell | Working | Any command — transcript, exit code, git state, diff. |
-| Claude Code CLI | Working | Auto-recorded via Stop hook after `tt install`; also works through `tt run`. |
-| Codex CLI | Working with wrapper | Parses `turn.completed` usage from `codex exec --json`, but must be launched through `tt run` today. |
-| Codex Desktop / VS Code | Planned | Not automatically captured yet. Needs a dedicated integration or reliable session-log source. |
+| Claude Code CLI | Automatic | Stop hook fires when any session ends. |
+| Claude Code Desktop | Automatic | Same Stop hook — Desktop reads `~/.claude/settings.json`. |
+| Codex CLI | Automatic | Shell shim installed by `tt install` wraps `codex exec` transparently. |
+| Codex Desktop | Automatic (macOS) | LaunchAgent polls `~/.codex/logs_2.sqlite` every 30 s for completed sessions. |
+| VS Code / IDE plugins | Planned | Needs a dedicated integration. |
 
 **Claude Code** (auto-detected when running `claude`):
 

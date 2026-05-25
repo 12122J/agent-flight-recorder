@@ -294,7 +294,12 @@ export default function SessionDetail({ session, vatRate = 0, pricingDb = null, 
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Source</div>
           <div className="detail-meta-item__value" style={{ fontSize: 12, color: '#6b7280' }}>
-            {session.source === 'codex-desktop' ? 'Codex Desktop' : session.source === 'hook' ? 'Claude Code hook' : session.agent || '—'}
+            {session.source === 'codex-desktop' ? 'Codex Desktop'
+              : session.source === 'hook' && session.entrypoint === 'desktop' ? 'Claude Code Desktop'
+              : session.source === 'hook' && (session.entrypoint === 'ide' || session.entrypoint === 'vscode') ? 'Claude Code IDE'
+              : session.source === 'hook' && session.entrypoint === 'cli' ? 'Claude Code CLI'
+              : session.source === 'hook' ? 'Claude Code'
+              : session.agent || '—'}
           </div>
         </div>
         <div className="detail-meta-item">

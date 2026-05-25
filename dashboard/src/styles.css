@@ -329,6 +329,14 @@ h1, h2, h3, h4 {
   background: #eff6ff;
   color: #1d4ed8;
 }
+.source-badge--app {
+  background: #f0fdf4;
+  color: #15803d;
+}
+.source-badge--ide {
+  background: #faf5ff;
+  color: #7e22ce;
+}
 
 /* ── Session detail panel ── */
 

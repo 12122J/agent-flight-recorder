@@ -111,6 +111,12 @@ export default function SessionsTable({ sessions, selectedId, onSelect, vatRate 
                   {session.source === 'codex-desktop' && (
                     <span className="source-badge source-badge--desktop" title="Recorded from Codex Desktop app">Desktop</span>
                   )}
+                  {session.source === 'hook' && session.entrypoint === 'desktop' && (
+                    <span className="source-badge source-badge--app" title="Recorded from Claude Code Desktop app">App</span>
+                  )}
+                  {session.source === 'hook' && (session.entrypoint === 'ide' || session.entrypoint === 'vscode') && (
+                    <span className="source-badge source-badge--ide" title="Recorded from Claude Code VS Code extension">IDE</span>
+                  )}
                 </div>
                 {(session.label || session.description) && (
                   <div style={{ fontSize: 11, color: '#374151', marginTop: 2, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

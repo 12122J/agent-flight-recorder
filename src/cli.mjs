@@ -22,7 +22,8 @@ Usage:
   tt report <run-dir>
   tt summarize                                 # shows ~/.tokentrace/runs/ (all hook-recorded sessions)
   tt summarize <runs-dir>                      # shows a specific directory
-  tt serve                                     # open the web dashboard at http://localhost:7842
+  tt serve                                     # start the dashboard server and open it in the browser
+  tt stop                                      # stop a running dashboard server
   tt hook stop
   tt install                                   # one-time setup for all automatic recording
   tt watch-codex [--once]                      # process completed Codex Desktop sessions
@@ -75,6 +76,10 @@ export async function main(argv, options = {}) {
 
   if (command === 'serve') {
     return serveCommand(rest);
+  }
+
+  if (command === 'stop') {
+    return stopCommand();
   }
 
   if (command === 'pricing') {
@@ -364,7 +369,24 @@ async function watchCodexCommand(args) {
   return 0;
 }
 
+const PID_FILE = join(homedir(), '.tokentrace', 'dashboard.pid');
+
 async function serveCommand(_args) {
+  // Check if already running
+  try {
+    const pid = parseInt(await readFile(PID_FILE, 'utf8'), 10);
+    if (pid) {
+      try {
+        process.kill(pid, 0); // Check if process exists
+        console.log(`tokentrace dashboard already running (pid ${pid}) at http://localhost:7842`);
+        console.log('Run `tt stop` to stop it.');
+        return 0;
+      } catch {
+        // PID file is stale — continue
+      }
+    }
+  } catch { /* no pid file */ }
+
   const serverPath = fileURLToPath(new URL('../dashboard/server.mjs', import.meta.url));
   const PORT = 7842;
   const URL_TO_OPEN = `http://localhost:${PORT}`;
@@ -379,26 +401,23 @@ async function serveCommand(_args) {
     process.exit(1);
   });
 
+  await ensureDir(join(homedir(), '.tokentrace'));
+  await writeFile(PID_FILE, String(child.pid));
+
+  child.on('exit', () => {
+    writeFile(PID_FILE, '').catch(() => {});
+  });
+
   // Give the server a moment to bind before opening the browser
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  const platform = process.platform;
-  let openCmd;
-  if (platform === 'darwin') {
-    openCmd = 'open';
-  } else if (platform === 'win32') {
-    openCmd = 'start';
-  } else {
-    openCmd = 'xdg-open';
-  }
-
-  const opener = spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: platform === 'win32' });
-  opener.on('error', () => {
-    // Opening the browser is best-effort — not fatal
-  });
+  const plt = process.platform;
+  const openCmd = plt === 'darwin' ? 'open' : plt === 'win32' ? 'start' : 'xdg-open';
+  const opener = spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: plt === 'win32' });
+  opener.on('error', () => {});
 
   console.log(`tokentrace dashboard running at ${URL_TO_OPEN}`);
-  console.log('Press Ctrl+C to stop.');
+  console.log('Run `tt stop` to stop it.');
 
   await new Promise((resolve, reject) => {
     child.on('exit', (code) => {
@@ -410,6 +429,19 @@ async function serveCommand(_args) {
     });
   });
 
+  return 0;
+}
+
+async function stopCommand() {
+  try {
+    const pid = parseInt(await readFile(PID_FILE, 'utf8'), 10);
+    if (!pid) throw new Error('no pid');
+    process.kill(pid, 'SIGTERM');
+    await writeFile(PID_FILE, '');
+    console.log(`tokentrace dashboard stopped (pid ${pid}).`);
+  } catch {
+    console.log('No running tokentrace dashboard found.');
+  }
   return 0;
 }
 

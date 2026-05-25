@@ -58,6 +58,25 @@ function extractUserMessage(body) {
   return m ? unescapeRust(m[1]).trim() : null;
 }
 
+// Extract per-turn billed usage from response.completed WebSocket event
+function extractResponseUsage(body) {
+  if (!body?.includes('"type":"response.completed"')) return null;
+  try {
+    const start = body.indexOf('{"type":"response.completed"');
+    if (start === -1) return null;
+    const data = JSON.parse(body.slice(start));
+    const u = data?.response?.usage;
+    if (!u) return null;
+    return {
+      input_tokens: u.input_tokens ?? 0,
+      output_tokens: u.output_tokens ?? 0,
+      cached_tokens: u.input_tokens_details?.cached_tokens ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function extractAssistantMessage(body) {
   // codex_core::stream_events_utils logs final assistant messages as Rust Debug:
   // handle_output_item_done: Output item item=Message { ... content: [OutputText { text: "..." }], phase: Some(FinalAnswer) }
@@ -120,6 +139,10 @@ export async function readNewSessions(sinceId = 0, dbPath = DEFAULT_DB_PATH) {
         model: null,
         cwd: null,
         total_tokens: 0,
+        // Exact billed token sums from response.completed events
+        billed_input: 0,
+        billed_output: 0,
+        billed_cached: 0,
         is_complete: false,
         user_messages: [],
         assistant_messages: [],
@@ -137,7 +160,17 @@ export async function readNewSessions(sinceId = 0, dbPath = DEFAULT_DB_PATH) {
       t.is_complete = true;
     }
 
-    // Per-turn token usage (cumulative context size — take the max across all turns)
+    // Exact billed usage from response.completed WebSocket events (per turn)
+    if (target === 'codex_api::endpoint::responses_websocket') {
+      const u = extractResponseUsage(body);
+      if (u) {
+        t.billed_input  += u.input_tokens;
+        t.billed_output += u.output_tokens;
+        t.billed_cached += u.cached_tokens;
+      }
+    }
+
+    // Fallback: cumulative context window size from session::turn (used only if no response.completed data)
     if (target === 'codex_core::session::turn') lastActiveThread = thread_id;
     if (target === 'codex_core::session::turn' && body?.includes('total_usage_tokens=')) {
       const m = body.match(/total_usage_tokens=(\d+)/);

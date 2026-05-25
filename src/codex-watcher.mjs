@@ -67,10 +67,14 @@ async function recordCodexDesktopSession(session) {
     getGitDiff(cwd).catch(() => ''),
   ]);
 
-  const usage = session.total_tokens > 0 ? {
-    total_tokens: session.total_tokens,
-    input_tokens: null,
-    output_tokens: null,
+  // Use exact billed tokens from response.completed events when available,
+  // fall back to context window size only if no API response data was captured.
+  const hasBilledData = session.billed_input > 0 || session.billed_output > 0;
+  const usage = (hasBilledData || session.total_tokens > 0) ? {
+    input_tokens:       hasBilledData ? session.billed_input  : null,
+    output_tokens:      hasBilledData ? session.billed_output : null,
+    cache_read_tokens:  hasBilledData ? session.billed_cached : null,
+    total_tokens:       session.total_tokens > 0 ? session.total_tokens : null,
     cost_usd: null,
   } : null;
 

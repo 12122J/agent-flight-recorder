@@ -61,14 +61,14 @@ export function sessionCost(session, pricingDb) {
     return { value: null, estimated: false };
   }
 
-  // Can't estimate without an input/output breakdown (Codex Desktop has only context size)
   const u = session.usage;
+  const p = lookupPrice(pricingDb, session.model);
+  if (!p) return { value: null, estimated: false };
+
+  // No per-turn breakdown available (Codex Desktop sessions without response.completed data)
   if (u.input_tokens == null && u.output_tokens == null) {
     return { value: null, estimated: false };
   }
-
-  const p = lookupPrice(pricingDb, session.model);
-  if (!p) return { value: null, estimated: false };
 
   const M = 1_000_000;
   const value = (

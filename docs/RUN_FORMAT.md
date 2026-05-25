@@ -1,11 +1,11 @@
 # Run Format
 
-Agent Flight Recorder writes one directory per run under `.afr/runs`.
+TokenTrace writes one directory per run under `.tokentrace/runs`.
 
 ## Directory Layout
 
 ```text
-.afr/runs/<run-id>/
+.tokentrace/runs/<run-id>/
   run.json
   events.jsonl
   transcript.txt

@@ -1,5 +1,5 @@
 {
-  "name": "tokentrace",
+  "name": "@j___avi/tokentrace",
   "version": "0.1.0",
   "description": "Token tracing and session recording for coding agents.",
   "type": "module",

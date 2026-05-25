@@ -2,18 +2,17 @@
 
 ## Near Term
 
-- Publish the package to npm.
-- Add a Claude Code adapter.
-- Add a GitHub Action that uploads run artifacts.
+- Add more agent adapters (Gemini CLI, Cursor, Windsurf).
 - Add optional secret scanning warnings before reports are shared.
-- Add fixture-based tests for real Codex JSON transcripts.
+- Add a GitHub Action that uploads run artifacts as PR comments.
+- Add fixture-based tests for real agent JSON transcripts.
 
 ## Later
 
-- Compare runs across agents.
+- Compare runs across agents — cost, speed, quality.
 - Export OpenTelemetry-compatible traces.
-- Render richer diff summaries in the HTML report.
-- Add a small viewer app for browsing `.afr/runs`.
+- Richer diff summaries in the HTML report.
+- Browser-based viewer for `~/.tokentrace/runs`.
 - Integrate with local IDE workflows.
 
 ## Non-Goals For Now

@@ -41,9 +41,6 @@ function buildWarnings(session) {
   if (session.usage == null) {
     warnings.push('No usage data recorded for this session');
   }
-  if (session.diff == null) {
-    warnings.push('No diff data available');
-  }
   if (session.git?.after?.dirty) {
     warnings.push('Working tree was dirty after session completed');
   }
@@ -127,6 +124,7 @@ export default function SessionDetail({ session }) {
   const warnings = buildWarnings(session);
   const usage = session.usage;
   const git = session.git?.after;
+  const gitBranch = session.git?.branch || git?.branch;
 
   return (
     <div className="detail-panel">
@@ -139,8 +137,8 @@ export default function SessionDetail({ session }) {
 
       <div className="detail-meta-grid">
         <div className="detail-meta-item">
-          <div className="detail-meta-item__label">Started</div>
-          <div className="detail-meta-item__value">{formatDate(session.started_at)}</div>
+          <div className="detail-meta-item__label">{session.started_at ? 'Started' : 'Completed'}</div>
+          <div className="detail-meta-item__value">{formatDate(session.started_at || session.completed_at)}</div>
         </div>
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Duration</div>
@@ -150,6 +148,21 @@ export default function SessionDetail({ session }) {
           <div className="detail-meta-item__label">Agent</div>
           <div className="detail-meta-item__value">{session.agent || '—'}</div>
         </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Model</div>
+          <div className="detail-meta-item__value" style={{ fontFamily: 'Menlo, monospace', fontSize: 12 }}>{session.model || '—'}</div>
+        </div>
+        {(session.profile || session.account_key_prefix) && (
+          <div className="detail-meta-item">
+            <div className="detail-meta-item__label">Account</div>
+            <div className="detail-meta-item__value">
+              {session.profile
+                ? session.profile
+                : <span style={{ fontFamily: 'Menlo, monospace', fontSize: 12 }}>{session.account_key_prefix}…</span>
+              }
+            </div>
+          </div>
+        )}
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Status</div>
           <div className="detail-meta-item__value">
@@ -176,13 +189,21 @@ export default function SessionDetail({ session }) {
           <div className="detail-meta-item__label">Output Tokens</div>
           <div className="detail-meta-item__value">{formatTokens(usage?.output_tokens)}</div>
         </div>
+        {usage?.cached_input_tokens != null && usage.cached_input_tokens > 0 && (
+          <div className="detail-meta-item">
+            <div className="detail-meta-item__label">Cache Hit Rate</div>
+            <div className="detail-meta-item__value">
+              {((usage.cached_input_tokens / (usage.input_tokens + usage.cached_input_tokens)) * 100).toFixed(1)}%
+            </div>
+          </div>
+        )}
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Files Changed</div>
           <div className="detail-meta-item__value">{session.diff?.files_changed ?? '—'}</div>
         </div>
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Branch</div>
-          <div className="detail-meta-item__value">{git?.branch || '—'}</div>
+          <div className="detail-meta-item__value">{gitBranch || '—'}</div>
         </div>
         <div className="detail-meta-item">
           <div className="detail-meta-item__label">Commit</div>

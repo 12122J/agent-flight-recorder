@@ -14,7 +14,7 @@ const FILTER_OPTIONS = [
 function filterByDays(sessions, days) {
   if (!days) return sessions;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  return sessions.filter(s => (s.started_at || '') >= cutoff);
+  return sessions.filter(s => (s.started_at || s.completed_at || '') >= cutoff);
 }
 
 export default function App() {

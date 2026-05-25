@@ -7,6 +7,13 @@ import { countPatchFiles, getGitDiff, getGitSnapshot } from './git.mjs';
 import { regenerateReport } from './report.mjs';
 import { ensureDir, nowIso, writeJson } from './util.mjs';
 
+function accountFingerprint() {
+  const key = process.env.ANTHROPIC_API_KEY ?? '';
+  if (!key) return null;
+  // Record only the first 12 chars — identifies the account, not usable as a key
+  return key.slice(0, 12);
+}
+
 export async function recordFromHook({ sessionId, transcriptPath, fallbackCwd }) {
   const transcriptRaw = await readFile(transcriptPath, 'utf8');
   const lines = transcriptRaw.split(/\r?\n/);
@@ -28,13 +35,21 @@ export async function recordFromHook({ sessionId, transcriptPath, fallbackCwd })
     cwd: resolvedCwd,
     agent: 'claude',
     label: null,
+    profile: process.env.TOKENTRACE_PROFILE ?? null,
+    account_key_prefix: accountFingerprint(),
+    model: extracted.model,
+    cc_version: extracted.ccVersion,
+    entrypoint: extracted.entrypoint,
     started_at: null,
     completed_at: completedAt,
     duration_ms: null,
     exit_code: 0,
     success: true,
     source: 'hook',
-    git: { after: gitAfter },
+    git: {
+      branch: extracted.gitBranch,
+      after: gitAfter,
+    },
     usage: extracted.usage,
     session: null,
     tools: extracted.tools,

@@ -30,8 +30,8 @@ function formatDuration(ms) {
 }
 
 const COLUMNS = [
-  { key: 'started_at', label: 'Date', sortFn: (a, b) => (a.started_at || '').localeCompare(b.started_at || '') },
-  { key: 'agent', label: 'Agent', sortFn: (a, b) => (a.agent || '').localeCompare(b.agent || '') },
+  { key: 'started_at', label: 'Date', sortFn: (a, b) => (a.started_at || a.completed_at || '').localeCompare(b.started_at || b.completed_at || '') },
+  { key: 'model', label: 'Model', sortFn: (a, b) => (a.model || '').localeCompare(b.model || '') },
   { key: 'total_tokens', label: 'Tokens', sortFn: (a, b) => (a.usage?.total_tokens ?? -1) - (b.usage?.total_tokens ?? -1) },
   { key: 'cost_usd', label: 'Cost', sortFn: (a, b) => (a.usage?.cost_usd ?? -1) - (b.usage?.cost_usd ?? -1) },
   { key: 'files_changed', label: 'Files', sortFn: (a, b) => (a.diff?.files_changed ?? -1) - (b.diff?.files_changed ?? -1) },
@@ -97,8 +97,8 @@ export default function SessionsTable({ sessions, selectedId, onSelect }) {
               onClick={() => onSelect(session.id === selectedId ? null : session.id)}
               className={session.id === selectedId ? 'selected' : ''}
             >
-              <td>{formatDate(session.started_at)}</td>
-              <td>{session.agent || '—'}</td>
+              <td>{formatDate(session.started_at || session.completed_at)}</td>
+              <td className="muted" style={{ fontFamily: 'Menlo, monospace', fontSize: 11 }}>{session.model ? session.model.replace('claude-', '') : '—'}</td>
               <td className="muted">{formatTokens(session.usage?.total_tokens)}</td>
               <td className="muted">{formatCost(session.usage?.cost_usd)}</td>
               <td className="muted">{session.diff?.files_changed ?? '—'}</td>

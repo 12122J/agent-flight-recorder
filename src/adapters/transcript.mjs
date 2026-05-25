@@ -6,6 +6,10 @@ export function parseTranscriptLine(line) {
 
 export function extractFromTranscript(lines) {
   let cwd = null;
+  let model = null;
+  let ccVersion = null;
+  let gitBranch = null;
+  let entrypoint = null;
   const rawUsage = { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 };
   let hasUsage = false;
   const tools = { command_count: 0, commands: [] };
@@ -17,6 +21,9 @@ export function extractFromTranscript(lines) {
     if (!entry) continue;
 
     if (entry.cwd && !cwd) cwd = entry.cwd;
+    if (entry.version && !ccVersion) ccVersion = entry.version;
+    if (entry.gitBranch && !gitBranch && entry.gitBranch !== 'HEAD') gitBranch = entry.gitBranch;
+    if (entry.entrypoint && !entrypoint) entrypoint = entry.entrypoint;
 
     if (entry.type === 'user') {
       const content = entry.message?.content;
@@ -28,6 +35,8 @@ export function extractFromTranscript(lines) {
     if (entry.type === 'assistant') {
       const msg = entry.message ?? {};
       const u = msg.usage ?? {};
+
+      if (msg.model && !model) model = msg.model;
 
       if (u.input_tokens != null || u.output_tokens != null) {
         hasUsage = true;
@@ -67,6 +76,10 @@ export function extractFromTranscript(lines) {
 
   return {
     cwd,
+    model,
+    ccVersion,
+    gitBranch,
+    entrypoint,
     usage: hasUsage ? {
       input_tokens: rawUsage.input_tokens,
       cached_input_tokens: cached,

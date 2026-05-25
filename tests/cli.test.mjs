@@ -23,8 +23,8 @@ test('main prints help', async () => {
   try {
     const exitCode = await main(['--help']);
     assert.equal(exitCode, 0);
-    assert.match(logs.join('\n'), /Agent Flight Recorder/);
-    assert.match(logs.join('\n'), /afr run/);
+    assert.match(logs.join('\n'), /TokenTrace/);
+    assert.match(logs.join('\n'), /tt run/);
   } finally {
     console.log = originalLog;
   }

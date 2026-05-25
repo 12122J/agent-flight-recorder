@@ -11,7 +11,7 @@ import { detectAgent, ensureDir, makeRunId, nowIso, writeJson } from './util.mjs
 export async function recordRun({
   command,
   cwd = process.cwd(),
-  runsRoot = join(cwd, '.afr', 'runs'),
+  runsRoot = join(cwd, '.tokentrace', 'runs'),
   agent = 'auto',
   label = null
 }) {

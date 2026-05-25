@@ -13,7 +13,7 @@ export async function recordFromHook({ sessionId, transcriptPath, fallbackCwd })
   const extracted = extractFromTranscript(lines);
 
   const resolvedCwd = resolve(extracted.cwd ?? fallbackCwd ?? process.cwd());
-  const runDir = join(homedir(), '.afr', 'runs', sessionId);
+  const runDir = join(homedir(), '.tokentrace', 'runs', sessionId);
 
   await ensureDir(runDir);
 

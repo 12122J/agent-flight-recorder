@@ -57,7 +57,7 @@ test('renderHtmlReport escapes command, transcript, patch, and event content', (
 });
 
 test('regenerateReport writes summary and html files', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-report-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-report-'));
   try {
     await writeFile(join(dir, 'run.json'), `${JSON.stringify(SAMPLE_RUN, null, 2)}\n`);
     await writeFile(join(dir, 'transcript.txt'), 'hello\n');

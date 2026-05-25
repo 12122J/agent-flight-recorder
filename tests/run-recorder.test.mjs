@@ -6,11 +6,11 @@ import { test } from 'node:test';
 import { recordRun } from '../src/run-recorder.mjs';
 
 test('recordRun creates portable artifacts for a successful command', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'afr-run-cwd-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'tt-run-cwd-'));
   const runsRoot = join(cwd, '.afr', 'runs');
   try {
     const result = await recordRun({
-      command: [process.execPath, '-e', "console.log('hello from afr')"],
+      command: [process.execPath, '-e', "console.log('hello from tt')"],
       cwd,
       runsRoot,
       agent: 'shell'
@@ -27,15 +27,15 @@ test('recordRun creates portable artifacts for a successful command', async () =
     const run = JSON.parse(await readFile(join(result.runDir, 'run.json'), 'utf8'));
     assert.equal(run.exit_code, 0);
     assert.equal(run.agent, 'shell');
-    assert.deepEqual(run.command, [process.execPath, '-e', "console.log('hello from afr')"]);
-    assert.match(await readFile(join(result.runDir, 'transcript.txt'), 'utf8'), /hello from afr/);
+    assert.deepEqual(run.command, [process.execPath, '-e', "console.log('hello from tt')"]);
+    assert.match(await readFile(join(result.runDir, 'transcript.txt'), 'utf8'), /hello from tt/);
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
 });
 
 test('recordRun captures Codex-style token usage from stdout JSON lines', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'afr-codex-cwd-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'tt-codex-cwd-'));
   const line = JSON.stringify({
     type: 'turn.completed',
     usage: {
@@ -70,7 +70,7 @@ test('recordRun captures Codex-style token usage from stdout JSON lines', async 
 });
 
 test('recordRun writes artifacts for a failing command and returns its exit code', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'afr-fail-cwd-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'tt-fail-cwd-'));
   try {
     const result = await recordRun({
       command: [process.execPath, '-e', 'process.exit(7)'],

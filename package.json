@@ -1,11 +1,11 @@
 {
-  "name": "agent-flight-recorder",
-  "version": "0.2.0",
-  "description": "Open telemetry for coding-agent runs.",
+  "name": "tokentrace",
+  "version": "0.1.0",
+  "description": "Token tracing and session recording for coding agents.",
   "type": "module",
   "bin": {
-    "afr": "bin/afr.mjs",
-    "afr-mcp": "bin/afr-mcp.mjs"
+    "tt": "bin/tt.mjs",
+    "tokentrace-mcp": "bin/tokentrace-mcp.mjs"
   },
   "files": [
     "bin",
@@ -27,18 +27,20 @@
   "keywords": [
     "agents",
     "telemetry",
+    "token-tracing",
     "codex",
     "claude",
-    "developer-tools"
+    "developer-tools",
+    "mcp"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/12122J/agent-flight-recorder.git"
+    "url": "git+https://github.com/12122J/tokentrace.git"
   },
   "bugs": {
-    "url": "https://github.com/12122J/agent-flight-recorder/issues"
+    "url": "https://github.com/12122J/tokentrace/issues"
   },
-  "homepage": "https://github.com/12122J/agent-flight-recorder#readme",
+  "homepage": "https://github.com/12122J/tokentrace#readme",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"

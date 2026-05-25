@@ -10,7 +10,7 @@ import { countPatchFiles, getGitDiff, getGitSnapshot } from '../src/git.mjs';
 const execFileAsync = promisify(execFile);
 
 test('getGitSnapshot degrades outside a git repository', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-no-git-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-no-git-'));
   try {
     const snapshot = await getGitSnapshot(dir);
     assert.equal(snapshot.available, false);
@@ -21,7 +21,7 @@ test('getGitSnapshot degrades outside a git repository', async () => {
 });
 
 test('getGitDiff returns an empty patch outside a git repository', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-no-diff-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-no-diff-'));
   try {
     assert.equal(await getGitDiff(dir), '');
   } finally {
@@ -30,7 +30,7 @@ test('getGitDiff returns an empty patch outside a git repository', async () => {
 });
 
 test('getGitDiff includes untracked text files as patch entries', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-untracked-git-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-untracked-git-'));
   try {
     await execFileAsync('git', ['init', '-b', 'main'], { cwd: dir });
     await writeFile(join(dir, 'new-file.txt'), 'hello\nworld\n');
@@ -60,7 +60,7 @@ test('countPatchFiles counts changed files in a unified git patch', () => {
 });
 
 test('getGitSnapshot handles an unborn git branch', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-unborn-git-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-unborn-git-'));
   try {
     await execFileAsync('git', ['init', '-b', 'main'], { cwd: dir });
     await writeFile(join(dir, 'README.md'), '# Test\n');

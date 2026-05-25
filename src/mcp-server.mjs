@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { readJson } from './util.mjs';
 
-const RUNS_DIR = join(homedir(), '.afr', 'runs');
+const RUNS_DIR = join(homedir(), '.tokentrace', 'runs');
 
 const TOOLS = [
   {
@@ -193,7 +193,7 @@ async function handleGetTokenUsage({ since, until } = {}) {
 
 export async function startMcpServer() {
   const server = new Server(
-    { name: 'agent-flight-recorder', version: '1.0.0' },
+    { name: 'tokentrace', version: '1.0.0' },
     { capabilities: { tools: {} } }
   );
 

@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { EventWriter } from '../src/event-writer.mjs';
 
 test('EventWriter appends timestamped JSONL events', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'afr-events-'));
+  const dir = await mkdtemp(join(tmpdir(), 'tt-events-'));
   try {
     const path = join(dir, 'events.jsonl');
     const writer = new EventWriter(path);

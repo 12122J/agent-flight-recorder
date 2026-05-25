@@ -1,0 +1,235 @@
+import React, { useState, useEffect } from 'react';
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+}
+
+function formatDuration(ms) {
+  if (ms == null || isNaN(ms)) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(ms / 60_000);
+  const s = Math.round((ms % 60_000) / 1000);
+  return `${m}m ${s}s`;
+}
+
+function formatCost(value) {
+  if (value == null || isNaN(value)) return '—';
+  if (value === 0) return '—';
+  if (value >= 1) return `$${value.toFixed(2)}`;
+  return `$${value.toFixed(4)}`;
+}
+
+function formatTokens(value) {
+  if (value == null || isNaN(value)) return '—';
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return String(value);
+}
+
+function buildWarnings(session) {
+  const warnings = [];
+  if (session.exit_code !== 0) {
+    warnings.push(`Non-zero exit code: ${session.exit_code}`);
+  }
+  if (session.usage == null) {
+    warnings.push('No usage data recorded for this session');
+  }
+  if (session.diff == null) {
+    warnings.push('No diff data available');
+  }
+  if (session.git?.after?.dirty) {
+    warnings.push('Working tree was dirty after session completed');
+  }
+  return warnings;
+}
+
+function DiffView({ content }) {
+  if (!content) return <div style={{ padding: '16px 24px', fontSize: 13, color: '#6b7280' }}>No diff available.</div>;
+
+  const lines = content.split('\n');
+  return (
+    <div className="diff-container">
+      <div className="diff-content">
+        {lines.map((line, i) => {
+          let cls = 'diff-line';
+          if (line.startsWith('+') && !line.startsWith('+++')) cls += ' diff-line--add';
+          else if (line.startsWith('-') && !line.startsWith('---')) cls += ' diff-line--remove';
+          else if (line.startsWith('@@')) cls += ' diff-line--hunk';
+          else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) cls += ' diff-line--header';
+          return <span key={i} className={cls}>{line}</span>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TranscriptView({ content }) {
+  if (!content) return <div style={{ padding: '16px 24px', fontSize: 13, color: '#6b7280' }}>No transcript available.</div>;
+  return (
+    <div className="transcript-container">
+      <pre className="transcript-content">{content}</pre>
+    </div>
+  );
+}
+
+export default function SessionDetail({ session }) {
+  const [activeTab, setActiveTab] = useState('transcript');
+  const [transcript, setTranscript] = useState(null);
+  const [diff, setDiff] = useState(null);
+  const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    setTranscript(null);
+    setDiff(null);
+    setActiveTab('transcript');
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!session || activeTab !== 'transcript' || transcript !== null) return;
+    setLoadingTranscript(true);
+    fetch(`/api/sessions/${encodeURIComponent(session.id)}/transcript`)
+      .then(r => r.ok ? r.text() : null)
+      .then(text => setTranscript(text ?? ''))
+      .catch(() => setTranscript(''))
+      .finally(() => setLoadingTranscript(false));
+  }, [session?.id, activeTab]);
+
+  useEffect(() => {
+    if (!session || activeTab !== 'diff' || diff !== null) return;
+    setLoadingDiff(true);
+    fetch(`/api/sessions/${encodeURIComponent(session.id)}/diff`)
+      .then(r => r.ok ? r.text() : null)
+      .then(text => setDiff(text ?? ''))
+      .catch(() => setDiff(''))
+      .finally(() => setLoadingDiff(false));
+  }, [session?.id, activeTab]);
+
+  if (!session) {
+    return (
+      <div className="detail-panel">
+        <div className="section-header">Session Detail</div>
+        <div className="detail-empty">
+          <p className="detail-empty__text">Select a session to view details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const warnings = buildWarnings(session);
+  const usage = session.usage;
+  const git = session.git?.after;
+
+  return (
+    <div className="detail-panel">
+      <div className="section-header">Session Detail</div>
+
+      <div className="detail-header">
+        <div className="detail-header__id">{session.id}</div>
+        <div className="detail-header__command">{(session.command || []).join(' ') || '—'}</div>
+      </div>
+
+      <div className="detail-meta-grid">
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Started</div>
+          <div className="detail-meta-item__value">{formatDate(session.started_at)}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Duration</div>
+          <div className="detail-meta-item__value">{formatDuration(session.duration_ms)}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Agent</div>
+          <div className="detail-meta-item__value">{session.agent || '—'}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Status</div>
+          <div className="detail-meta-item__value">
+            <span className={`status-badge ${session.exit_code === 0 ? 'status-badge--ok' : 'status-badge--fail'}`}>
+              {session.exit_code === 0 ? 'ok' : `exit ${session.exit_code ?? '?'}`}
+            </span>
+          </div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Cost</div>
+          <div className="detail-meta-item__value">{formatCost(usage?.cost_usd)}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Total Tokens</div>
+          <div className="detail-meta-item__value">{formatTokens(usage?.total_tokens)}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Input / Cache</div>
+          <div className="detail-meta-item__value">
+            {usage ? `${formatTokens(usage.input_tokens)} / ${formatTokens(usage.cached_input_tokens)}` : '—'}
+          </div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Output Tokens</div>
+          <div className="detail-meta-item__value">{formatTokens(usage?.output_tokens)}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Files Changed</div>
+          <div className="detail-meta-item__value">{session.diff?.files_changed ?? '—'}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Branch</div>
+          <div className="detail-meta-item__value">{git?.branch || '—'}</div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Commit</div>
+          <div className="detail-meta-item__value" style={{ fontFamily: 'Menlo, monospace', fontSize: 12 }}>
+            {git?.commit ? git.commit.slice(0, 8) : '—'}
+          </div>
+        </div>
+        <div className="detail-meta-item">
+          <div className="detail-meta-item__label">Label</div>
+          <div className="detail-meta-item__value">{session.label || '—'}</div>
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="warnings-list">
+          {warnings.map((w, i) => (
+            <div key={i} className="warning-item">{w}</div>
+          ))}
+        </div>
+      )}
+
+      <div className="detail-tabs">
+        <button
+          className={`detail-tab ${activeTab === 'transcript' ? 'detail-tab--active' : ''}`}
+          onClick={() => setActiveTab('transcript')}
+        >
+          Transcript
+        </button>
+        <button
+          className={`detail-tab ${activeTab === 'diff' ? 'detail-tab--active' : ''}`}
+          onClick={() => setActiveTab('diff')}
+        >
+          Diff
+        </button>
+      </div>
+
+      {activeTab === 'transcript' && (
+        loadingTranscript
+          ? <div className="loading">Loading...</div>
+          : <TranscriptView content={transcript} />
+      )}
+
+      {activeTab === 'diff' && (
+        loadingDiff
+          ? <div className="loading">Loading...</div>
+          : <DiffView content={diff} />
+      )}
+    </div>
+  );
+}

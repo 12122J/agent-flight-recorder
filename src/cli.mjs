@@ -2,6 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 import packageJson from '../package.json' with { type: 'json' };
 import { recordFromHook } from './hook-recorder.mjs';
 import { recordRun } from './run-recorder.mjs';
@@ -15,6 +16,7 @@ Usage:
   tt report <run-dir>
   tt summarize                                 # shows ~/.tokentrace/runs/ (all hook-recorded sessions)
   tt summarize <runs-dir>                      # shows a specific directory
+  tt serve                                     # open the web dashboard at http://localhost:7842
   tt hook stop
   tt install
   tt --version
@@ -23,6 +25,7 @@ Usage:
 Examples:
   tt install                                   # one-time setup: records every Claude Code session
   tt summarize                                 # see all your recorded sessions
+  tt serve                                     # browse sessions in the local web dashboard
   tt run -- claude --output-format json -p "explain this repo"
 `;
 
@@ -58,6 +61,10 @@ export async function main(argv, options = {}) {
 
   if (command === 'install') {
     return installCommand(cwd);
+  }
+
+  if (command === 'serve') {
+    return serveCommand(rest);
   }
 
   throw new Error(`Unknown command: ${command}\n\n${USAGE}`);
@@ -179,6 +186,55 @@ async function installCommand(cwd) {
   await writeFile(settingsPath, JSON.stringify(settings, null, 4) + '\n');
   console.log(`Installed tokentrace Stop hook → ${settingsPath}`);
   console.log('Every Claude Code session in any directory will now be recorded to .tokentrace/runs/');
+  return 0;
+}
+
+async function serveCommand(_args) {
+  const serverPath = fileURLToPath(new URL('../dashboard/server.mjs', import.meta.url));
+  const PORT = 7842;
+  const URL_TO_OPEN = `http://localhost:${PORT}`;
+
+  const child = spawn(process.execPath, [serverPath], {
+    stdio: 'inherit',
+    detached: false,
+  });
+
+  child.on('error', (err) => {
+    process.stderr.write(`[tt] Failed to start dashboard server: ${err.message}\n`);
+    process.exit(1);
+  });
+
+  // Give the server a moment to bind before opening the browser
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  const platform = process.platform;
+  let openCmd;
+  if (platform === 'darwin') {
+    openCmd = 'open';
+  } else if (platform === 'win32') {
+    openCmd = 'start';
+  } else {
+    openCmd = 'xdg-open';
+  }
+
+  const opener = spawn(openCmd, [URL_TO_OPEN], { stdio: 'ignore', shell: platform === 'win32' });
+  opener.on('error', () => {
+    // Opening the browser is best-effort — not fatal
+  });
+
+  console.log(`tokentrace dashboard running at ${URL_TO_OPEN}`);
+  console.log('Press Ctrl+C to stop.');
+
+  await new Promise((resolve, reject) => {
+    child.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        reject(new Error(`Dashboard server exited with code ${code}`));
+      } else {
+        resolve();
+      }
+    });
+  });
+
   return 0;
 }
 

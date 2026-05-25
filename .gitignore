@@ -1,4 +1,6 @@
 .afr/
 .npm-cache/
 node_modules/
+dashboard/node_modules/
 .DS_Store
+knowledge-work-plugins/

@@ -1,150 +1,106 @@
-# TokenTrace
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/wordmark-dark.svg">
+    <img src="docs/assets/wordmark-light.svg" alt="tokentrace" height="48">
+  </picture>
+</h1>
 
-Know what your coding agent actually did — and what it cost.
+<p align="center">
+  <strong>Automatic session recording for coding agents.</strong><br>
+  Every Claude Code and Codex session — transcript, cost, diff — saved locally without any setup.
+</p>
 
-`tt` records supported coding-agent sessions and CLI runs, then writes a local
-trace — transcript, git diff, token usage, cost — as plain files you can
-inspect, share, or attach to a PR.
-No hosted service. No signup. Zero runtime dependencies.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@j___avi/tokentrace"><img src="https://img.shields.io/npm/v/@j___avi/tokentrace?color=000&labelColor=000&style=flat-square" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-000?labelColor=000&style=flat-square" alt="MIT"></a>
+  <a href="https://github.com/12122J/tokentrace"><img src="https://img.shields.io/badge/by-12122J-000?labelColor=000&style=flat-square" alt="author"></a>
+</p>
 
-```bash
-npm install -g @j___avi/tokentrace
-tt install
-# Claude Code CLI sessions are now recorded automatically when they end
+<br>
 
-tt summarize
-# 2026-05-25   ok   tokens=1,762,228   cost=$37.9232   changed=4   claude
-```
+<p align="center">
+  <img src="docs/assets/dashboard-screenshot.png" width="820" alt="tokentrace dashboard showing session list, cost breakdown, and cost-per-day chart" />
+</p>
 
-## Why
+<br>
 
-Agent runs disappear into terminal scrollback. You either trust the result or
-you don't, with nothing in between. `tt` gives you the evidence:
-
-- what command ran and whether it succeeded
-- the full stdout/stderr transcript
-- what changed in git, as a patch
-- how many tokens were used and what it cost
-- trust warnings for runs that look incomplete
-
-The trace stays on your machine. You decide what to share.
-
-## Use Cases
-
-**Track what you're actually spending.** Claude Code sessions can quietly run up large token counts. `tt summarize` gives you a line per session — tokens, cost, files changed, date — so you can see where your usage goes.
-
-```
-2026-05-25   ok   tokens=1,762,228   cost=$37.9232   changed=4   claude
-2026-05-24   ok   tokens=452,104     cost=$3.1210    changed=7   codex
-2026-05-22   ok   tokens=892,041     cost=$1.0204    changed=0   claude
-```
-
-**Attach evidence to a PR.** When an agent writes or refactors code, reviewers are often asked to trust the result blindly. Drop `summary.md` or `diff.patch` into the PR description so reviewers can see the transcript and what actually changed.
-
-**Debug a session that went wrong.** If an agent made unexpected changes or exited badly, the transcript and diff tell you exactly what happened — without relying on terminal scrollback that's already gone.
-
-**Spot sessions that need a second look.** Trust warnings flag sessions where files changed but no tests ran, or where token usage is missing. A quick `tt summarize` shows you which sessions are worth reviewing before you ship.
-
-## Getting Started
+## Install
 
 ```bash
 npm install -g @j___avi/tokentrace
 tt install
 ```
 
-`tt install` adds a Stop hook to `~/.claude/settings.json`. From that point on, Claude Code CLI sessions are automatically recorded when they end — no wrapper command needed.
+That's it. **Restart your shell once** after install. Every session is now recorded automatically.
 
-After your next Claude Code session:
+```
+✓ Claude Code hook installed → ~/.claude/settings.json
+✓ Codex CLI shim installed  → ~/.zshrc
+✓ Codex Desktop watcher installed → ~/Library/LaunchAgents/io.tokentrace.codex-watcher.plist
+```
+
+## What gets recorded automatically
+
+| Surface | Status |
+|---|---|
+| Claude Code CLI | ✅ Automatic |
+| Claude Code Desktop | ✅ Automatic — same hook file |
+| Claude Code VS Code extension | ✅ Automatic — same hook file |
+| Codex CLI | ✅ Automatic — transparent shell shim after `tt install` |
+| Codex Desktop app | ✅ Automatic — background watcher every 30 s (macOS) |
+| VS Code / IDE plugins | 🔜 Planned |
+
+## See your sessions
 
 ```bash
 tt summarize
 ```
 
 ```
-2026-05-25T10:20Z   ok   tokens=1762228   cost=$37.9232   changed=4   claude
+2026-05-25   ok   tokens=223K   cost=$1.43    changed=7    claude-sonnet-4-6   Refactor auth middleware to use JWT
+2026-05-24   ok   tokens=104K   cost=$0.71    changed=4    claude-sonnet-4-6   Add dark mode to settings page
+2026-05-24   ok   tokens=44K    cost=$0.23    changed=2    gpt-5.5             Fix race condition in queue processor
+2026-05-23   ok   ctx=89K       cost=—        changed=5    gpt-5.5   DESKTOP   Write unit tests for billing module
+2026-05-22   ok   tokens=531K   cost=$11.24   changed=12   claude-opus-4-7     Migrate Postgres schema to multi-tenancy
 ```
 
-Open the full report:
-
-```bash
-open ~/.tokentrace/runs/<session-id>/report.html
-```
-
-Sessions are stored in `~/.tokentrace/runs/` — one folder per session, named by session ID.
-
-## Dashboard
-
-Run the local dashboard to browse sessions, compare cost over time, inspect transcripts and diffs, set an EU VAT rate, and add your own labels.
+## Open the dashboard
 
 ```bash
 tt serve
 ```
 
-![TokenTrace dashboard overview](docs/assets/dashboard-overview.svg)
+Browse sessions, compare cost over time, inspect transcripts and diffs, set a VAT rate.
 
-Each session includes an estimated pricing breakdown. Cache reads are displayed separately because they can be huge across long agent sessions, but they are not counted as "total tokens" in the dashboard.
+## What's inside each recorded session
 
-![TokenTrace session cost breakdown](docs/assets/session-breakdown-sample.svg)
-
-## Current Limitations
-
-TokenTrace is early and intentionally honest about what it can see today.
-
-| Surface | Current support |
-| --- | --- |
-| Claude Code CLI | Automatic after `tt install`. |
-| Claude Code Desktop | Automatic after `tt install` — same hook file as CLI. |
-| Codex Desktop app | Automatic after `tt install` — reads `~/.codex/logs_2.sqlite` every 30 s via a macOS LaunchAgent. |
-| Codex CLI | Automatic after `tt install` if `codex` is in PATH — a shell shim wraps it transparently. |
-| Shell commands | Works when launched through `tt run -- <command>`. |
-| VS Code / IDE integrations | Not captured automatically yet. |
-| Browser-based agent sessions | Not captured automatically yet. |
-
-**Codex Desktop transcript note:** The SQLite log database does not store full per-thread assistant message content for all sessions. User messages are always captured; assistant message text is captured when available in the logs (usually for recent sessions). Token count and model are always captured.
-
-TokenTrace is not a global activity monitor for IDE plugins or browser sessions — those surfaces need dedicated integrations.
-
-## Automatic Recording via `tt install`
-
-`tt install` sets up three integrations at once:
-
-1. **Claude Code hook** — writes a Stop hook to `~/.claude/settings.json`. Both the CLI and the Desktop app read this file, so both surfaces are covered.
-2. **Codex CLI shim** — if `codex` is in PATH, adds a shell function to `~/.zshrc` (or `~/.bashrc`) that wraps every `codex exec` call transparently. Restart your shell once after install.
-3. **Codex Desktop watcher** (macOS only) — installs a LaunchAgent at `~/Library/LaunchAgents/io.tokentrace.codex-watcher.plist` that runs `tt watch-codex --once` every 30 seconds. Completed Codex Desktop sessions are recorded automatically.
-
-```bash
-npm install -g @j___avi/tokentrace
-tt install
-# ✓ Claude Code hook installed → ~/.claude/settings.json
-# ✓ Codex CLI shim installed → ~/.zshrc
-# ✓ Codex Desktop watcher installed → ~/Library/LaunchAgents/io.tokentrace.codex-watcher.plist
+```
+~/.tokentrace/runs/<session-id>/
+  run.json        # agent, model, tokens, cost, git state, duration
+  transcript.txt  # full conversation — user prompts and agent replies
+  diff.patch      # every file the agent touched, as a unified patch
+  summary.md      # human-readable one-page summary
+  report.html     # standalone HTML report, openable offline
 ```
 
-To see all recorded sessions:
+Example `tt summarize` output for a single session:
 
-```bash
-tt summarize
-# 2026-05-25T10:20Z   ok   tokens=1762228   cost=$37.9232   changed=4   claude
-# 2026-05-24T18:43Z   ok   tokens=452104    cost=$3.1210    changed=7   codex
+```
+2026-05-25T09:12Z   ok   tokens=223K   cost=$1.43   changed=7   claude
 ```
 
-To open the HTML report for a session:
+## Why it exists
 
-```bash
-open ~/.tokentrace/runs/<session-id>/report.html
-```
+Agent sessions disappear into terminal scrollback. You either trust the result or you don't, with nothing in between. tokentrace gives you the evidence:
 
-To uninstall, remove the tokentrace entry from the `hooks.Stop` array in `~/.claude/settings.json`.
+- **Cost visibility** — token spend per session, cost per day, running total
+- **Trust** — full transcript + git diff attached to every session
+- **Debugging** — when an agent does something unexpected, the log tells you exactly what happened
+- **PR evidence** — attach `summary.md` or `diff.patch` to pull requests so reviewers see what the agent actually did
 
-## Ask Claude About Your Sessions
+## MCP server — ask Claude about your sessions
 
-`tt` ships an MCP server so Claude can query your recorded sessions directly. Once wired up, you can ask things like:
-
-- *"how much have I spent on tokens this week?"*
-- *"what did I change in my last session?"*
-- *"show me the diff from yesterday"*
-
-**Setup (one time):** add this to `~/.claude/mcp.json`:
+Add to `~/.claude/mcp.json`:
 
 ```json
 {
@@ -157,111 +113,41 @@ To uninstall, remove the tokentrace entry from the `hooks.Stop` array in `~/.cla
 }
 ```
 
-Restart Claude Code and just ask. No commands needed — Claude pulls the data from `~/.tokentrace/runs/` automatically.
+Then ask Claude directly:
 
-The MCP server exposes four tools Claude can call:
+> *"how much have I spent on tokens this week?"*
+> *"what did I change in my last Claude Code session?"*
+> *"show me the diff from yesterday"*
 
-| Tool | What it does |
-| --- | --- |
-| `list_sessions` | Recent sessions — tokens, cost, files changed, status |
-| `get_session` | Full metadata + transcript for one session |
-| `get_diff` | Git patch from a session |
-| `get_token_usage` | Aggregate cost and token totals, with optional date range |
+## Honest limitations
 
-## What You Get
+tokentrace reads what's available from each surface. Some data isn't logged by the agents themselves:
 
-Each run writes six files:
+| Surface | Token count | Cost | Transcript |
+|---|---|---|---|
+| Claude Code CLI / Desktop / VS Code | ✅ input + output | ✅ exact | ✅ full |
+| Codex CLI (via shim) | ✅ input + output | ✅ exact | ✅ full |
+| Codex Desktop | ⚠️ context window size | — not calculable | ⚠️ user messages only |
 
-```
-.tokentrace/runs/<run-id>/
-  run.json        # structured metadata: command, exit code, usage, git state
-  events.jsonl    # chronological event stream
-  transcript.txt  # full stdout and stderr
-  diff.patch      # git patch captured after the run
-  summary.md      # human-readable summary
-  report.html     # standalone HTML report, openable offline
-```
-
-Example `summary.md`:
-
-```markdown
-**Command**: `claude --output-format json -p "list the files in this repo"`
-**Duration**: 13.33s
-**Exit Code**: 0
-**Total Tokens**: 66289
-**Files Changed**: 0
-```
-
-See [docs/RUN_FORMAT.md](docs/RUN_FORMAT.md) for full schema details.
-
-## Supported Agents
-
-| Agent | Status | Notes |
-| --- | --- | --- |
-| Shell | Working | Any command — transcript, exit code, git state, diff. |
-| Claude Code CLI | Automatic | Stop hook fires when any session ends. |
-| Claude Code Desktop | Automatic | Same Stop hook — Desktop reads `~/.claude/settings.json`. |
-| Codex CLI | Automatic | Shell shim installed by `tt install` wraps `codex exec` transparently. |
-| Codex Desktop | Automatic (macOS) | LaunchAgent polls `~/.codex/logs_2.sqlite` every 30 s for completed sessions. |
-| VS Code / IDE plugins | Planned | Needs a dedicated integration. |
-
-**Claude Code** (auto-detected when running `claude`):
-
-```bash
-# Tokens + cost captured from the result event
-tt run -- claude --output-format json -p "your prompt"
-
-# Also captures individual Bash and file tool calls
-tt run -- claude --output-format stream-json -p "your prompt"
-```
-
-**Codex:**
-
-```bash
-tt run -- codex exec --json "your prompt"
-```
-
-Codex runs are not automatic yet. If Codex is started from the desktop app, VS Code, or directly as `codex exec ...` without `tt run`, TokenTrace will not record that session today.
-
-**Any shell command** (no token usage, but transcript + git diff still recorded):
-
-```bash
-tt run -- npm test
-tt run -- ./scripts/deploy.sh
-```
-
-## Trust Warnings
-
-Reports flag runs that deserve a second look:
-
-- no token usage captured
-- git metadata unavailable
-- files changed with no recorded verification command
-- non-zero exit code
-
-Warnings are conservative — they prompt inspection, not rejection.
-
-## Principles
-
-- **Local first** — traces stay on your machine unless you share them.
-- **Agent neutral** — the format works across tools.
-- **Portable** — plain JSON, JSONL, Markdown, HTML, and patch files.
-- **Honest** — failed runs still produce artifacts.
-- **Small core** — adapters add intelligence without coupling the recorder to any one agent.
+Codex Desktop sessions show the context window size (`ctx=89K`) not the sum of billed tokens — because that data isn't in the log database. Cost is never shown as a guess.
 
 ## Development
 
 ```bash
-npm run check   # runs tests + npm pack --dry-run
-tt run -- node -e "console.log('sample')"
-tt summarize
+git clone https://github.com/12122J/tokentrace
+cd tokentrace
+npm install
+npm test         # 48 tests
+
+# Run with demo data
+node scripts/gen-demo-data.mjs
+TOKENTRACE_RUNS_DIR=~/.tokentrace-demo/runs tt serve
 ```
 
 ## Contributing
 
-Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and
-keep new features grounded in portable traces rather than hosted assumptions.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Keep new features grounded in portable, local-first traces.
 
 ## License
 
-MIT
+MIT — [12122J](https://github.com/12122J)

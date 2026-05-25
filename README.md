@@ -60,17 +60,18 @@ tt summarize
 2026-05-25   ok   tokens=223K   cost=$1.43    changed=7    claude-sonnet-4-6   Refactor auth middleware to use JWT
 2026-05-24   ok   tokens=104K   cost=$0.71    changed=4    claude-sonnet-4-6   Add dark mode to settings page
 2026-05-24   ok   tokens=44K    cost=$0.23    changed=2    gpt-5.5             Fix race condition in queue processor
-2026-05-23   ok   ctx=89K       cost=—        changed=5    gpt-5.5   DESKTOP   Write unit tests for billing module
+2026-05-23   ok   tokens=84K    cost=$0.43    changed=17   gpt-5.5   DESKTOP   Write unit tests for billing module
 2026-05-22   ok   tokens=531K   cost=$11.24   changed=12   claude-opus-4-7     Migrate Postgres schema to multi-tenancy
 ```
 
 ## Open the dashboard
 
 ```bash
-tt serve
+tt serve        # start server + open browser
+tt stop         # stop the server
 ```
 
-Browse sessions, compare cost over time, inspect transcripts and diffs, set a VAT rate.
+Browse sessions, compare cost over time, inspect transcripts and diffs, set a VAT rate. The dashboard shows each session's surface — CLI, Desktop app, or IDE extension.
 
 ## What's inside each recorded session
 
@@ -127,9 +128,7 @@ tokentrace reads what's available from each surface. Some data isn't logged by t
 |---|---|---|---|
 | Claude Code CLI / Desktop / VS Code | ✅ input + output | ✅ exact | ✅ full |
 | Codex CLI (via shim) | ✅ input + output | ✅ exact | ✅ full |
-| Codex Desktop | ⚠️ context window size | — not calculable | ⚠️ user messages only |
-
-Codex Desktop sessions show the context window size (`ctx=89K`) not the sum of billed tokens — because that data isn't in the log database. Cost is never shown as a guess.
+| Codex Desktop | ✅ input + output (per-turn) | ✅ exact | ✅ full |
 
 ## Development
 

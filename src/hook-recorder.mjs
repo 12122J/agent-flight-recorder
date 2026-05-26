@@ -61,6 +61,7 @@ export async function recordFromHook({ sessionId, transcriptPath, fallbackCwd })
     } : null,
     session: null,
     tools: extracted.tools,
+    turns: extracted.turns,
     diff: { files_changed: countPatchFiles(patch) },
     artifacts: {
       events: 'events.jsonl',

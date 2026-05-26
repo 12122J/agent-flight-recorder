@@ -96,7 +96,7 @@ test('extractFromTranscript extracts Bash tool calls', () => {
   assert.equal(result.tools.commands[1].command, 'git status');
 });
 
-test('extractFromTranscript extracts file operations', () => {
+test('extractFromTranscript extracts file operations into human transcript', () => {
   const lines = [
     JSON.stringify({
       type: 'assistant',
@@ -113,8 +113,10 @@ test('extractFromTranscript extracts file operations', () => {
   ];
 
   const result = extractFromTranscript(lines);
-  assert.equal(result.files.read_count, 3);
-  assert.deepEqual(result.files.reads.map(r => r.path), ['src/index.mjs', 'out.txt', 'src/util.mjs']);
+  assert.ok(result.humanTranscript.includes('[read] src/index.mjs'));
+  assert.ok(result.humanTranscript.includes('[write] out.txt'));
+  assert.ok(result.humanTranscript.includes('[edit] src/util.mjs'));
+  assert.equal(result.files, undefined);
 });
 
 test('extractFromTranscript builds human-readable transcript', () => {
